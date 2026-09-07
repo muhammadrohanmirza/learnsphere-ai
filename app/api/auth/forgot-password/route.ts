@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     const result = forgotSchema.safeParse(body)
     
     if (!result.success) {
-      const errorMessage = result.error.errors?.[0]?.message || 'Invalid input data'
+      const errorMessage = result.error.issues?.[0]?.message || 'Invalid input data'
       return NextResponse.json({ message: errorMessage }, { status: 400 })
     }
 

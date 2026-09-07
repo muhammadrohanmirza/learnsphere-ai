@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     const result = feedbackSchema.safeParse(body)
 
     if (!result.success) {
-      return NextResponse.json({ message: result.error.errors[0]?.message || 'Invalid data' }, { status: 400 })
+      return NextResponse.json({ message: result.error.issues[0]?.message || 'Invalid data' }, { status: 400 })
     }
 
     const { name, role, message, rating } = result.data

@@ -9,7 +9,7 @@ export default async function FlashcardsPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/login')
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } })
+  const user = await prisma.user.findUnique({ where: { email: session.user?.email! } })
   if (!user) redirect('/login')
 
   const topics = await prisma.topic.findMany({
