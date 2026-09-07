@@ -1,0 +1,256 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  password      String?
+  image         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  accounts          Account[]
+  sessions          Session[]
+  profile           Profile?
+  topics            Topic[]
+  notes             Note[]
+  quizzes           Quiz[]
+  quizAttempts      QuizAttempt[]
+  flashcards        Flashcard[]
+  learningActivities LearningActivity[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Profile {
+  id             String   @id @default(cuid())
+  userId         String   @unique @map("user_id")
+  streakCount    Int      @default(0) @map("streak_count")
+  lastActiveDate DateTime? @map("last_active_date")
+  totalXP        Int      @default(0) @map("total_xp")
+  bio            String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model Topic {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  title       String
+  description String?  @db.Text
+  content     String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents  Document[]
+  notes      Note[]
+  quizzes    Quiz[]
+  flashcards Flashcard[]
+
+  @@map("topics")
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  topicId   String   @map("topic_id")
+  fileName  String   @map("file_name")
+  fileUrl   String   @map("file_url")
+  fileType  String   @map("file_type")
+  extractedText String @db.Text @map("extracted_text")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  topicId   String?  @map("topic_id")
+  title     String
+  content   String   @db.Text
+  isPinned  Boolean  @default(false) @map("is_pinned")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic Topic? @relation(fields: [topicId], references: [id], onDelete: SetNull)
+
+  @@map("notes")
+}
+
+model Quiz {
+  id          String     @id @default(cuid())
+  userId      String     @map("user_id")
+  topicId     String?    @map("topic_id")
+  title       String
+  description String?    @db.Text
+  difficulty  Difficulty @default(INTERMEDIATE)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic    Topic?        @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  questions Question[]
+  attempts QuizAttempt[]
+
+  @@map("quizzes")
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  quizId        String   @map("quiz_id")
+  questionText  String   @db.Text @map("question_text")
+  options       String[] // Array of 4 options
+  correctAnswer String   @map("correct_answer")
+  explanation   String   @db.Text
+  concept       String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  quiz        Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quizAnswers QuizAnswer[]
+
+  @@map("questions")
+}
+
+model QuizAttempt {
+  id          String        @id @default(cuid())
+  userId      String        @map("user_id")
+  quizId      String        @map("quiz_id")
+  score       Int           @default(0)
+  total       Int           @default(0)
+  percentage  Float         @default(0.0)
+  status      AttemptStatus @default(IN_PROGRESS)
+  timeTaken   Int           @default(0) @map("time_taken") // in seconds
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz        Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quizAnswers QuizAnswer[]
+
+  @@map("quiz_attempts")
+}
+
+model QuizAnswer {
+  id            String   @id @default(cuid())
+  attemptId     String   @map("attempt_id")
+  questionId    String   @map("question_id")
+  selectedAnswer String  @map("selected_answer")
+  isCorrect     Boolean  @map("is_correct")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  attempt  QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("quiz_answers")
+}
+
+model Flashcard {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  topicId   String?  @map("topic_id")
+  front     String   @db.Text
+  back      String   @db.Text
+  status    String   @default("learning") // learning, mastered, revision
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic Topic? @relation(fields: [topicId], references: [id], onDelete: SetNull)
+
+  @@map("flashcards")
+}
+
+model LearningActivity {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  activityType String  @map("activity_type") // QUIZ_COMPLETED, TOPIC_STUDIED, NOTE_CREATED, FLASHCARD_REVIEWED
+  title       String
+  xpEarned    Int      @default(10) @map("xp_earned")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("learning_activities")
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  name      String
+  role      String   // e.g. "Computer Science Student"
+  message   String   @db.Text
+  rating    Int      @default(5)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("feedbacks")
+}
